@@ -18,7 +18,7 @@ var options = {
   jar: cookieJar
 }
 
-async function getProducts () {
+function getProducts () {
   // await storage.init();
   // storedPlants = await storage.keys();
   // for (p=8; p<=10; p++) {
