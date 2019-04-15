@@ -1,49 +1,39 @@
 const rp = require('request-promise')
 const cheerio = require('cheerio')
+const axios = require('axios')
 // const storage = require('node-persist')
 // const url = require('url')
 var storedPlants
 var cookieJar = rp.jar
+
 var options = {
-  uri: '',
-  followAllRedirects: true,
-  method: 'get',
+  uri: 'https://www.prairiemoon.com/seeds/?page=8',
+  method: 'GET',
   transform: function (body) {
     return cheerio.load(body)
   },
-  headers: {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36'
-  },
-  resolveWithFullResponse: true,
   jar: cookieJar
 }
 
 function getProducts () {
-  // await storage.init();
-  // storedPlants = await storage.keys();
-  // for (p=8; p<=10; p++) {
-  //     console.log(p + ' ' + url);
-  let thesePlants = []
-  var seedPageUrl = 'https://www.prairiemoon.com/seeds/'
-  options.uri = seedPageUrl
-  for (var p = 1; p <= 5; p++) {
-    console.log(options.uri)
-    rp(options)
-      .then(processSeedsPageHTML)
-      .then(function (myItems) {
-        console.log(myItems.count)
-        thesePlants.push(myItems)
-      })
-      .catch(e => console.log('Critical failure: ' + e.message))
-    options.uri = seedPageUrl + '?page=' + p
-  }
+  axios.get('https://www.prairiemoon.com/seeds/?page=8')
+    .then(function (response) {
+        $ = cheerio.load(response.data)
+        console.log(response.status)
+        console.log(response.headers)
+       processSeedsPageHTML($)
+    })
+    .catch(e => console.log('Critical failure: ' + e.message))
+//    options.uri = seedPageUrl + '?page=' + p
+//  }
 //   thesePlants.foreach(function (plant, p) {
 //     console.log(p + ': ' + plant.commonName)
 //   })
 }
 
-var processSeedsPageHTML = function (my$) {
+function processSeedsPageHTML (my$) {
   console.log(my$.html().length)
+  console.log(my$('.page-links-active').html())
   let pagePlants = []
   my$('#js-product-list').find('p.category-product-name a').each(function (i, elem) {
     var thisPlant = {}
