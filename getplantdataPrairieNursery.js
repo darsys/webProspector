@@ -1,12 +1,11 @@
 const rp = require('request-promise')
 const fs = require('fs')
-//const cheerio = require('cheerio')
+const cheerio = require('cheerio')
 //const axios = require('axios')
-const storage = require('node-persist')
+//const storage = require('node-persist')
 // const url = require('url')
 var storedPlants
-var cookieJar = rp.jar
-const baseuri = 'https://api.searchspring.net/api/search/search.json?resultsFormat=native&siteId=qfh40u&filter.category_code=seeds&page='
+const baseuri = 'https://www.prairienursery.com/store/seeds/page/'
 
 var options = {
   method: 'GET',
@@ -16,54 +15,21 @@ var options = {
     'Connection': 'keep-alive',
     'Upgrade-Insecure-Request': '1'
   },
+  transform: function (body) {
+    return cheerio.load(body)
+  },
   jar: true
 }
 
 async function getProducts () {
   var pagenumber
-  for (pagenumber = 1; pagenumber <= 27; pagenumber++) {
-    options.uri = baseuri + pagenumber
+  for (pagenumber = 1; pagenumber <= 5; pagenumber++) {
+    options.uri = baseuri + pagenumber + '?_url=seeds'
     console.log(options.uri)
     rp(options)
       .then(function ($) {
-        var myO = JSON.parse($)
-        console.log(myO.pagination.totalPages)
-        myO.results.forEach(async function (thisPlant, i) {
-          var newPlant = {}
-          newPlant.name = thisPlant.name
-          newPlant.commonName = thisPlant.cmn_name
-          newPlant.description = thisPlant.description
-          newPlant.sku = thisPlant.sku
-          newPlant.bloomtime = thisPlant.bloom_time
-          newPlant.color = thisPlant.bloom_color
-          if (typeof thisPlant.ss_advantages !== 'undefined') {
-            newPlant.features = thisPlant.ss_advantages
-          }
-          newPlant.germination = thisPlant.germination_code
-          newPlant.exposure = thisPlant.sun_exposure
-          newPlant.soil = thisPlant.soil_moisture
-          if (typeof thisPlant.all_prices !== 'undefined') {
-            newPlant.prices = []
-            thisPlant.all_prices.forEach(function (price, p) {
-              if (thisPlant.available_options[p * 2] === 'Seeds') {
-                newPlant.prices.push({ size: thisPlant.available_options[(p * 2) + 1], price: price })
-              }
-            })
-          }
-          newPlant.imageUrl = thisPlant.imageUrl
-          newPlant.thumbNailUrl = thisPlant.thumbnailImageUrl
-          // if (storedPlantNames.includes(newPlant.name)) {
-          //   await storage.updateItem(newPlant.name, newPlant)
-          // } else {
-          //   await storage.setItem(newPlant.name, newPlant)
-          // }
-          var fn = 'C:\\Google Drive\\data\\plantData\\' + newPlant.name + '.prairiemoon.json'
-          fs.writeFile(fn, JSON.stringify(newPlant), (err) => {
-            if (err) throw err
-            console.log(fn + ' has been saved!')
-          })
-          // console.log(newPlant)
-        })
+        // console.log(myO.pagination.totalPages)
+        console.log($('#productList li a').attr('href'))
       })
       .catch(e => console.log('Critical failure: ' + e.message))
   }
