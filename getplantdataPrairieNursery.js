@@ -1,10 +1,6 @@
 const rp = require('request-promise')
 const fs = require('fs')
 const cheerio = require('cheerio')
-//const axios = require('axios')
-//const storage = require('node-persist')
-// const url = require('url')
-var storedPlants
 const baseuri = 'https://www.prairienursery.com/store/seeds/page/'
 
 var options = {
@@ -29,105 +25,100 @@ async function getProducts () {
     rp(options)
       .then(function ($) {
         // console.log(myO.pagination.totalPages)
-        console.log($('#productList li a').attr('href'))
+        $('#productList li .product-link a').each(function () {
+          var thisUrl = $(this).attr('href')
+          console.log(thisUrl)
+          parsePlantPageHtml(thisUrl)
+        })
       })
       .catch(e => console.log('Critical failure: ' + e.message))
   }
 }
 
-function processSeedsPageHTML (my$) {
-  console.log(my$.html().length)
-  console.log(my$('.page-links-active').html())
-  let pagePlants = []
-  my$('#js-product-list').find('p.category-product-name a').each(function (i, elem) {
-    var thisPlant = {}
-    thisPlant.latinName = my$(elem).find('span.latin-name').text()
-    thisPlant.commonName = my$(elem).find('span.common-name').text()
-    thisPlant.prairieMoonUrl = my$(this).attr('href')
-    console.log(thisPlant.prairieMoonUrl)
-    pagePlants.push(thisPlant)
-  })
-  return Promise.resolve(pagePlants)
-}
+function parsePlantPageHtml (url) {
+  options.uri = 'https://www.prairienursery.com/' + url
+  rp(options)
+    .then(function ($) {
+      var thisPlant = {}
+      thisPlant.name = $('#common-name').text()
+      thisPlant.commonName = $('#latin-name').text()
+      thisPlant.description = $('#product-bottom').prev('div').text()
+      const spo = $('div.price-range-tab').prev('div').text()
+      thisPlant.seedsperoz = parseInt(spo.substring(0, spo.indexOf(' ')).replace(/,/g, ''))
+      $('#product-right div.bg-style1 table tr').each(function () {
+        // console.log('item: ' + $(this).text())
+        var data = $(this).find('td').text()
+        var colon = data.indexOf(':')
+        var prop = data.substring(0, colon).toLowerCase()
+        var val = data.substring(colon + 1, 100)
+        // switch (prop) {
+        //   case 'Germination Code':
+        //     val = val.replace(/\s+/g, ',')
+        //     break
+        //   case 'Plant Spacing':
+        //     val = val.substring(0, val.length - 1)
+        //     break
+        //   case 'USDA Zones':
+        //     val = val.split('-')
+        //     val = { min: val[0], max: val[1] }
+        //     break
+        //   case 'Seeds/Packet':
+        //   case 'Seeds/Ounce':
+        //     break
+        //   case 'Height':
+        //     var n = val.toLowerCase().indexOf('feet')
+        //     if (n !== -1) {
+        //       val = (parseInt(val) * 12).toString()
+        //     } else {
+        //       val = parseInt(val)
+        //     }
+        //     break
+        //   default:
+        //     val = val.split(',').map(function (item) { return item.trim() })
+        // }
 
-// function getPlantFromProductPage (plantUrl) {
-//   return new Promise(function (resolve, reject) {
-//     options.uri = plantUrl
-//     rp(options)
-//       .then(function ($) {
-//         resolve(parsePlantPageHtml($))
-//       })
-//     // .then(function (thisPlant) {
-//     //   return storePlant(thisPlant)
-//     // })
-//       .catch(function (err) {
-//         reject(err)
-//       })
-//   })
-// }
-
-async function storePlant (plantObject) {
-  // await storage.setItem(plantObject.latinName, JSON.stringify(plantObject));
-  console.log('Collected and stored ' + plantObject.latinName)
-  return plantObject
-}
-
-function parsePlantPageHtml ($) {
-  var thisPlant = {}
-  var myNames = $('div.product-information--purchase').find('h1').text().split('\n')
-  thisPlant.latinName = myNames[0]
-  thisPlant.commonName = myNames[1]
-  $('div.product-information--details').find('dt').each(function (i, elem) {
-    var prop = $(this).text()
-    var val = $(this).next('dd').text().trim()
-    switch (prop) {
-      case 'Germination Code':
-        val = val.replace(/\s+/g, ',')
-        break
-      case 'Plant Spacing':
-        val = val.substring(0, val.length - 1)
-        break
-      case 'USDA Zones':
-        val = val.split('-')
-        val = { min: val[0], max: val[1] }
-        break
-      case 'Seeds/Packet':
-      case 'Seeds/Ounce':
-        break
-      case 'Height':
-        var n = val.toLowerCase().indexOf('feet')
-        if (n !== -1) {
-          val = (parseInt(val) * 12).toString()
+        if (val.includes(', ')) {
+          thisPlant[prop] = val.split(', ')
         } else {
-          val = parseInt(val)
+          thisPlant[prop] = val
         }
-        break
-      default:
-        val = val.split(',').map(function (item) { return item.trim() })
-    }
-    thisPlant[prop] = JSON.stringify(val)
-    console.log('Property:' + prop + ' value:' + JSON.stringify(val))
-  })
-  return thisPlant
-}
-
-function errorProcessor (err) {
-  console.log(err.name)
-  console.log(err.message)
+      })
+      console.log(thisPlant)
+      var fn = 'C:\\Google Drive\\data\\plantData\\' + thisPlant.name + '.prairienursery.json'
+      fs.writeFile(fn, JSON.stringify(thisPlant, null, 2), (err) => {
+        if (err) throw err
+        console.log(fn + ' has been saved!')
+      })
+    })
+    .catch(e => console.log('Critical failure: ' + e.message))
+    //     $('div.product-information--details').find('dt').each(function (i, elem) {
+    //     var prop = $(this).text()
+    //     var val = $(this).next('dd').text().trim()
+    //     switch (prop) {
+    //       case 'Germination Code':
+    //         val = val.replace(/\s+/g, ',')
+    //         break
+    //       case 'Plant Spacing':
+    //         val = val.substring(0, val.length - 1)
+    //         break
+    //       case 'USDA Zones':
+    //         val = val.split('-')
+    //         val = { min: val[0], max: val[1] }
+    //         break
+    //       case 'Seeds/Packet':
+    //       case 'Seeds/Ounce':
+    //         break
+    //       case 'Height':
+    //         var n = val.toLowerCase().indexOf('feet')
+    //         if (n !== -1) {
+    //           val = (parseInt(val) * 12).toString()
+    //         } else {
+    //           val = parseInt(val)
+    //         }
+    //         break
+    //       default:
+    //         val = val.split(',').map(function (item) { return item.trim() })
+    //     }
 }
 
 getProducts()
-// getPlantFromProductPage('https://www.prairiemoon.com/bromus-pubescens-hairy-wood-chess-prairie-moon-nursery.html');
-// getPlantItemHtml('antennaria', 'neglecta');
-// getPlantItemHtml('echinacea', 'pallida');
-
-//  async function dotheThing($) {
-//     var myNames = $('div.product-information--purchase').find('h1').text().split('\n');
-//     console.log('Name :' + myNames[0]);
-//     console.log('Common Name : ' + myNames[1]);
-//     console.log('BC : ' + $('div.breadcrumbs').html());
-//     //console.log('html : ' + $.html());
-//     $('#js-product-list').find('p.category-product-name a').each(function (i, elem) {
-//         console.log('Plant found : ' + $(elem).find('span.latin-name').text());
-//      });
-// }

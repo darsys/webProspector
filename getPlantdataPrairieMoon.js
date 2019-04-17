@@ -56,3 +56,5 @@ async function getProducts () {
       .catch(e => console.log('Critical failure: ' + e.message))
   }
 }
+
+getProducts()
