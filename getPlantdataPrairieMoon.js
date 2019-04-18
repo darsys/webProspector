@@ -1,5 +1,8 @@
 const rp = require('request-promise')
 const fs = require('fs')
+const cheerio = require('cheerio')
+const wait = require('util').promisify(setTimeout);
+
 const baseuri = 'https://api.searchspring.net/api/search/search.json?resultsFormat=native&siteId=qfh40u&filter.category_code=seeds&page='
 var options = {
   method: 'GET',
@@ -11,50 +14,150 @@ var options = {
   },
   jar: true
 }
+var pageoptions = {
+  method: 'GET',
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:66.0) Gecko/20100101 Firefox/66.0',
+    'X-Requested-With': 'XMLHttpRequest',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Request': '1'
+  },
+  transform: function (body) {
+    return cheerio.load(body)
+  },
+  jar: true
+}
 
 async function getProducts () {
   var pagenumber
   for (pagenumber = 1; pagenumber <= 27; pagenumber++) {
-    options.uri = baseuri + pagenumber
-    console.log(options.uri)
-    rp(options)
-      .then(function ($) {
-        var myO = JSON.parse($)
-        console.log(myO.pagination.totalPages)
-        myO.results.forEach(async function (thisPlant, i) {
-          var newPlant = {}
-          newPlant.name = thisPlant.name
-          newPlant.commonName = thisPlant.cmn_name
-          newPlant.description = thisPlant.description
-          newPlant.sku = thisPlant.sku
-          newPlant.bloomtime = thisPlant.bloom_time
-          newPlant.color = thisPlant.bloom_color
-          if (typeof thisPlant.ss_advantages !== 'undefined') {
-            newPlant.features = thisPlant.ss_advantages
-          }
-          newPlant.germination = thisPlant.germination_code
-          newPlant.exposure = thisPlant.sun_exposure
-          newPlant.soil = thisPlant.soil_moisture
-          if (typeof thisPlant.all_prices !== 'undefined') {
-            newPlant.prices = []
-            thisPlant.all_prices.forEach(function (price, p) {
-              if (thisPlant.available_options[p * 2] === 'Seeds') {
-                newPlant.prices.push({ size: thisPlant.available_options[(p * 2) + 1], price: price })
-              }
-            })
-          }
-          newPlant.imageUrl = thisPlant.imageUrl
-          newPlant.thumbNailUrl = thisPlant.thumbnailImageUrl
-          var fn = 'C:\\Google Drive\\data\\plantData\\' + newPlant.name + '.prairiemoon.json'
-          fs.writeFile(fn, JSON.stringify(newPlant), (err) => {
-            if (err) throw err
-            console.log(fn + ' has been saved!')
-          })
-          // console.log(newPlant)
-        })
-      })
-      .catch(e => console.log('Critical failure: ' + e.message))
+    var pageuri = baseuri + pagenumber
+    console.log(pageuri)
+    var items = await processProductsList(pageuri)
+    console.log(items)
+    await wait(10000)
   }
+}
+
+async function processProductsList (pageuri) {
+  options.uri = pageuri
+  rp(options)
+    .then(async function ($) {
+      var myO = JSON.parse($)
+      var total = 0
+      myO.results.forEach(async function (thisPlant, i) {
+      // if (i < 4) {
+        await getProductsFromPage('https://www.prairiemoon.com' + thisPlant.url)
+        total = i
+      })
+      Promise.resolve(total)
+    })
+    .catch(e => console.log('Critical failure: ' + e.message))
+}
+
+function getProductsFromPage (plantpageuri) {
+  pageoptions.uri = plantpageuri
+  rp(pageoptions)
+    .then(function ($) {
+      var newPlant = parsePlantPageHtml($)
+      console.log(newPlant)
+      var fn = 'C:\\Google Drive\\data\\plantData\\' + newPlant.name + '.prairiemoon.json'
+      fs.writeFile(fn, JSON.stringify(newPlant, null, 2), (err) => {
+        if (err) throw err
+        console.log(fn + ' has been saved!')
+      })
+      Promise.resolve(newPlant)
+    })
+    .catch(e => console.log('Critical failure: ' + e.message))
+}
+
+function parsePlantPageHtml ($) {
+  var thisPlant = {}
+  var myNames = $('div.product-information--purchase').find('h1').text().split('\n')
+  thisPlant.name = myNames[0].toLowerCase().trim()
+  thisPlant.commonname = myNames[1].toLowerCase().trim()
+  thisPlant.description = $('#tab-descrip').text().trim()
+  // console.log(myNames)
+  $('div.product-information--details').find('dt').each(function (i, elem) {
+    var prop = $(this).text().toLowerCase()
+    var val = $(this).next('dd').text().trim()
+    var mm
+    switch (prop) {
+      case 'germination code':
+        prop = 'germination'
+        val = val.replace(/\s+/g, ',').split(',')
+        break
+      case 'bloom time':
+        prop = 'blooms'
+        val = val.split(',').map(function (item) { return item.trim() })
+        break
+      case 'bloom color':
+        prop = 'color'
+        val = val.split(',').map(function (item) { return item.trim() })
+        break
+      case 'plant spacing':
+        mm = getMinMax(val)
+        val = { min: parseInt(mm.min), max: parseInt(mm.max) }
+        prop = 'spacing'
+        break
+      case 'sun exposure':
+        prop = 'light'
+        val = val.split(',').map(function (item) { return item.trim() })
+        break
+      case 'soil moisture':
+        prop = 'moisture'
+        val = val.split(',').map(function (item) { return item.trim() })
+        break
+      case 'catalog number':
+        prop = 'sku'
+        break
+      case 'advantages':
+        prop = 'features'
+        val = []
+        $(this).next('dd').find('abbr').each(function (i, elem) {
+          val.push($(this).attr('data-tipso'))
+        })
+        break
+      case 'height':
+        var n = val.toLowerCase().indexOf('feet')
+        if (n !== -1) {
+          val = (parseInt(val) * 12)
+        } else {
+          val = parseInt(val)
+        }
+        break
+      case 'usda zones':
+        prop = 'zones'
+        mm = val.split('-')
+        val = []
+        for (var z = mm[0]; z <= mm[1]; z++) {
+          val.push(parseInt(z))
+        }
+        break
+      case 'seeds/packet':
+      case 'seeds/ounce':
+        val = parseFloat(val.replace(/,/g, ''))
+        break
+      default:
+        val = val.split(',').map(function (item) { return item.trim() })
+    }
+    thisPlant[prop] = val
+    // console.log('Property:' + prop + ' value:' + JSON.stringify(val))
+  })
+  return thisPlant
+}
+
+function getMinMax (theItem) {
+  var min, max
+  if (theItem.includes('-')) {
+    theItem = theItem.split('-')
+    min = theItem[0]
+    max = theItem[1]
+  } else {
+    min = theItem
+    max = theItem
+  }
+  return { min: min, max: max }
 }
 
 getProducts()
