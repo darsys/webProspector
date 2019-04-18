@@ -33,8 +33,7 @@ async function getProducts () {
   for (pagenumber = 1; pagenumber <= 27; pagenumber++) {
     var pageuri = baseuri + pagenumber
     console.log(pageuri)
-    var items = await processProductsList(pageuri)
-    console.log(items)
+    await processProductsList(pageuri)
     await wait(10000)
   }
 }
@@ -46,9 +45,10 @@ async function processProductsList (pageuri) {
       var myO = JSON.parse($)
       var total = 0
       myO.results.forEach(async function (thisPlant, i) {
-      // if (i < 4) {
+        // if (i < 4) {
         await getProductsFromPage('https://www.prairiemoon.com' + thisPlant.url)
         total = i
+        // }
       })
       Promise.resolve(total)
     })
@@ -141,6 +141,30 @@ function parsePlantPageHtml ($) {
       default:
         val = val.split(',').map(function (item) { return item.trim() })
     }
+    thisPlant.prices = []
+    $('#seeds form div.form-row').each(function (i, elem) {
+      // console.log(i)
+      var thisSize = $(this).find('div.prompt').text().toLowerCase()
+      var price = parseFloat($(this).find('div.price').text().substring(1, 10))
+      if (Number.isNaN(price)) { return }
+      var qty, unit
+      if (thisSize.includes(' ')) {
+        thisSize = thisSize.split(' ')
+        qty = thisSize[0]
+        unit = thisSize[1].replace('.', '')
+        if (qty.includes('/')) {
+          qty = qty.split('/')
+          qty = qty[0] / qty[1]
+        }
+      } else {
+        qty = 1.0
+        unit = thisSize
+      }
+      thisPlant.prices.push({ quantity: parseFloat(qty), unit: unit, price: parseFloat(price) })
+      // console.log('qty: ' + qty)
+      // console.log('unit: ' + unit)
+      // console.log('price: ' + price)
+    })
     thisPlant[prop] = val
     // console.log('Property:' + prop + ' value:' + JSON.stringify(val))
   })
