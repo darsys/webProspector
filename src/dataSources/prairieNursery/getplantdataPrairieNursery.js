@@ -2,7 +2,7 @@ const rp = require('request-promise')
 const fs = require('fs')
 const cheerio = require('cheerio')
 const baseuri = 'https://www.prairienursery.com'
-
+const outputPath = ''
 var options = {
   method: 'GET',
   headers: {
@@ -112,7 +112,7 @@ function parsePlantPageHtml (url) {
         thisPlant[prop] = val
       })
       console.log(thisPlant)
-      var fn = 'C:\\Google Drive\\data\\plantData\\' + thisPlant.name + '.prairienursery.json'
+      var fn = './data/' + thisPlant.name + '.prairienursery.json'
       fs.writeFile(fn, JSON.stringify(thisPlant, null, 2), (err) => {
         if (err) throw err
         console.log(fn + ' has been saved!')

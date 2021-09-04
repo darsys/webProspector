@@ -2,29 +2,37 @@
   "name": "webprospector",
   "version": "0.1.0",
   "description": "scrape item data from web",
-  "main": "getPlantdataPrairieMoon.js",
+  "main": "src/svr.ts",
   "dependencies": {
     "axios": "^0.21.1",
     "cheerio": "^1.0.0-rc.5",
     "css-select": "^1.2.0",
+    "dotenv": "^10.0.0",
     "follow-redirects": "^1.13.2",
     "htmlparser2": "^3.10.1",
     "is-buffer": "^1.1.6",
     "mkdirp": "^1.0.4",
+    "mongodb": "^3.6.4",
     "node-persist": "^3.1.0",
     "parse5": "^3.0.3",
     "request": "^2.88.2",
     "request-promise": "^4.2.6",
     "request-promise-core": "^1.1.4"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@types/express": "^4.17.11",
+    "@types/mongodb": "^3.6.8",
+    "@types/node": "^14.14.30",
+    "nodemon": "^2.0.7",
+    "ts-node": "^9.1.1",
+    "typescript": "^4.1.5"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node --trace-warnings dist/server.js",
+    "prestart": "npm run build",
+    "build": "tsc"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/darsys/webProspector.git"
-  },
+  "repository": "git+https://github.com/darsys/webProspector.git",
   "author": "Damon Vincent",
   "license": "GPL-3.0-or-later",
   "bugs": {
