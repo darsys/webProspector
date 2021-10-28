@@ -7,8 +7,7 @@ console.debug(`connecting db on host ${process.env.PLANTS_MONGODB_HOST}....`);
 const uri = `mongodb://${process.env.PLANTS_MONGODB_USER}:${process.env.PLANTS_MONGODB_PASS}@${process.env.PLANTS_MONGODB_HOST}:27017/plants`;
 console.debug(uri);
 const db = new db_1.default(uri);
-//console.log(`connected to db and found ${db.plantsCollection.count}`)
-// import PM from "./dataSources/prairieMoon/prairieMoon"
-// const pm = new PM()
-// //pm.getProducts()
+const prairieMoon_1 = require("./dataSources/prairieMoon/prairieMoon");
+const pm = new prairieMoon_1.default();
+pm.getProducts();
 //# sourceMappingURL=server.js.map

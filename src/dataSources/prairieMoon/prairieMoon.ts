@@ -33,8 +33,8 @@ export default class prairieMoon {
     for (pagenumber = 1; pagenumber <= 27; pagenumber++) {
       var pageuri = this.baseuri + pagenumber
       console.log(pageuri)
-      await this.processProductsList(pageuri)
-      await wait(10000)
+      this.processProductsList(pageuri)
+      // await wait(10000)
     }
   }
 
@@ -47,12 +47,13 @@ export default class prairieMoon {
         var total = 0
         myO.forEach(async function (thisPlant, i) {
           total++
+          console.debug(`plant:${total}`)
           console.log(thisPlant)
-          this.getProductsFromPage('https://www.prairiemoon.com' + thisPlant.url)
+          // this.getProductsFromPage('https://www.prairiemoon.com' + thisPlant.url)
         })
         Promise.resolve(total)
       })
-      .catch(e => console.log('Critical failure: ' + e.message))
+      .catch((e: { message: string; }) => console.log('Critical failure: ' + e.message))
   }
 
   getProductsFromPage (plantpageuri: string) {
@@ -80,6 +81,106 @@ export default class prairieMoon {
           reject(e)
         })
       })
+  }
+
+  parseJSON ($) {
+    var thisPlant: plant
+    var myNames = $('div.product-information--purchase').find('h1').text().split('\n')
+    thisPlant.latin_name = myNames[0].toLowerCase().trim()
+    thisPlant.common_name = myNames[1].toLowerCase().trim()
+    thisPlant.description = $('#tab-descrip').text().trim()
+    // console.log(myNames)
+    $('div.product-information--details').find('dt').each(function (i, elem) {
+      var prop = $(this).text().toLowerCase()
+      var val = $(this).next('dd').text().trim()
+      var mm
+      switch (prop) {
+        case 'germination code':
+          prop ='germination'
+          val = val.replace(/\s+/g, ',').split(',')
+          break
+        case 'bloom time':
+          prop = 'blooms'
+          val = val.split(',').map(function (item) { return item.trim() })
+          break
+        case 'bloom color':
+          prop = 'color'
+          val = val.split(',').map(function (item) { return item.trim() })
+          break
+        case 'plant spacing':
+          mm = this.getMinMax(val)
+          val = { min: parseInt(mm.min), max: parseInt(mm.max) }
+          prop = 'spacing'
+          break
+        case 'sun exposure':
+          prop = 'light'
+          val = val.split(',').map(function (item) { return item.trim() })
+          break
+        case 'soil moisture':
+          prop = 'moisture'
+          val = val.split(',').map(function (item) { return item.trim() })
+          break
+        case 'catalog number':
+          prop = 'sku'
+          break
+        case 'advantages':
+          prop = 'features'
+          val = []
+          $(this).next('dd').find('abbr').each(function (i, elem) {
+            val.push($(this).attr('data-tipso'))
+          })
+          break
+        case 'height':
+          var n = val.toLowerCase().indexOf('feet')
+          if (n !== -1) {
+            val = (parseInt(val) * 12)
+          } else {
+            val = parseInt(val)
+          }
+          break
+        case 'usda zones':
+          prop = 'zones'
+          mm = val.split('-')
+          val = []
+          for (var z = mm[0]; z <= mm[1]; z++) {
+            val.push(parseInt(z))
+          }
+          break
+        case 'seeds/packet':
+        case 'seeds/ounce':
+          val = parseFloat(val.replace(/,/g, ''))
+          break
+        default:
+          val = val.split(',').map(function (item) { return item.trim() })
+      }
+      // thisPlant.prices = []
+      // $('#seeds form div.form-row').each(function (i, elem) {
+      //   // console.log(i)
+      //   var thisSize = $(this).find('div.prompt').text().toLowerCase()
+      //   var price = parseFloat($(this).find('div.price').text().substring(1, 10))
+      //   if (Number.isNaN(price)) { return }
+      //   var qty, unit
+      //   if (thisSize.includes(' ')) {
+      //     thisSize = thisSize.split(' ')
+      //     qty = thisSize[0]
+      //     unit = thisSize[1].replace('.', '')
+      //     if (qty.includes('/')) {
+      //       qty = qty.split('/')
+      //       qty = qty[0] / qty[1]
+      //     }
+      //   } else {
+      //     qty = 1.0
+      //     unit = thisSize
+      //   }
+      //   thisPlant.prices.push({ quantity: parseFloat(qty), unit: unit, price: parseFloat(price) })
+      //   // console.log('qty: ' + qty)
+      //   // console.log('unit: ' + unit)
+      //   // console.log('price: ' + price)
+      // })
+      thisPlant[prop] = val
+      // console.log('Property:' + prop + ' value:' + JSON.stringify(val))
+    })
+    return thisPlant
   }
 
   parsePlantPageHtml ($) {
